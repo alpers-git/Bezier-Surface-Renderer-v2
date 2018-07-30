@@ -33,7 +33,7 @@ int main(void)
 		return -1;
 
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
-	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 5);
+	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
 	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
 	/* Create a windowed mode window and its OpenGL context */
@@ -73,9 +73,9 @@ int main(void)
 	}
 
 
-	BezierSurface* b_surface = new BezierSurface(5, 5, control_points);
 	//------------------------------------//
 	{
+		BezierSurface* b_surface = new BezierSurface(5, 5, control_points);
 
 		GLCall(glEnable(GL_BLEND));
 		GLCall(glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA));
@@ -103,20 +103,19 @@ int main(void)
 
 		Shader shader("res/shaders/Basic.shader");
 		shader.Bind();
-		shader.SetUniform4f("u_Color", 0.9f, 0.3f, 0.8f, 1.0f);
+		shader.SetUniform4f("u_LightPosition", 0.0f, 0.0f, 18.8f, 1.0f);
+		shader.SetUniform4f("u_AmbientProduct", 0.0f, 0.05f, 0.05, 1.0f);
+		shader.SetUniform4f("u_DiffuseProduct", 0.4f, 0.5f, 0.5f, 1.0f);
+		shader.SetUniform4f("u_SpecularProduct", 0.04f, 0.7f, 0.7f, 1.0f);
+		shader.SetUniform1f("u_Shininess", 0.78f);
 		shader.SetUniformMat4f("u_MVP", mvp);
 
-		Texture texture("res/textures/wood.png");
+		Texture texture("res/textures/rubber.png");
 		texture.Bind();
 		shader.SetUniform1i("u_Texture", 0);
 
 		vArray.Unbind();
-		vBuffer.Unbind();
-		iBuffer.Unbind();
 		shader.Unbind();
-
-		/*GLCall(int thetaLoc = glGetUniformLocation(shader, "theta"));
-		ASSERT(thetaLoc != -1);*/
 
 		GLCall(glEnable(GL_DEPTH_TEST));
 		GLCall(glDepthFunc(GL_LEQUAL));
@@ -134,12 +133,13 @@ int main(void)
 
 		bool show_demo_window = true;
 		bool show_another_window = false;
-		glm::vec3 cam_pos(-0.0f, 0.0f, -4.0f);
+
+		glm::vec3 cam_pos(0.0f, 0.0f, -4.0f);
 		glm::vec3 axisa = glm::vec3(0.0f, 1.0f, 0.6f);
 		ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
 
 		float ra = 0.0f;
-		int a = 0;
+		float a = 0.0f;
 
 		GLCall(glClearColor(0.86f, 0.86f, 0.86f, 1.0f));
 
@@ -154,35 +154,36 @@ int main(void)
 			shader.Bind();
 			{
 				model = glm::scale(glm::mat4(1.0f), glm::vec3(0.3f, 0.3f, 0.3f));
-				//model = glm::translate(model, glm::vec3(-3.0f, 0.0f, 0.0f));
-				//model = glm::rotate(model, glm::radians(ra), axisa);
 				view = glm::scale(glm::mat4(1.0f), glm::vec3(1.0f, 1.0f, 1.0f));
-				view = glm::translate(view, cam_pos);
+				view = glm::translate(view, glm::vec3(0.0f, 0.0f, -4.0f));
 				view = glm::rotate(view, glm::radians(ra), axisa);
 				mvp = proj * view * model;
+				glm::mat4 normal_matrix = glm::inverse(glm::transpose(mvp));
+
+				shader.SetUniform4f("u_LightPosition", cam_pos.x, cam_pos.y, cam_pos.z, 1.0f);
 				shader.SetUniformMat4f("u_MVP", mvp);
+				shader.SetUniformMat4f("u_NormalMat", normal_matrix);
 
 				control_points[2][2].z = a;
-				BezierSurface* surface = new BezierSurface(5, 5, control_points);
+				b_surface->EvaluateBezierSurface();//Recalculating surface
 
-				VertexBuffer vBuffer(&surface->GetVertices().at(0), sizeof(Vertex) * surface->GetVertices().size());
+				VertexBuffer vBuffer = VertexBuffer(&b_surface->GetVertices().at(0), sizeof(Vertex) * b_surface->GetVertices().size());
 				vArray.AddBuffer(vBuffer, layout);
 
-				for (int i = 0; i < surface->GetIndices().size(); i += 4)
+				for (int i = 0; i < b_surface->GetIndices().size(); i += 4)
 				{
-					IndexBuffer iBuffer(&surface->GetIndices().at(i), 4);
+					IndexBuffer iBuffer(&b_surface->GetIndices().at(i), 4);
 					renderer.Draw(vArray, iBuffer, shader, GL_TRIANGLE_FAN);
 				}
 
-				delete surface;
 			}
 
 			{
 				ImGui::Text("Transforms");                           // Display some text (you can use a format string too)
-				ImGui::SliderFloat3("Camera Pos", &cam_pos.x, -40.0f, 40.0f);
+				ImGui::SliderFloat3("Camera Pos", &cam_pos.x, -10.0f, 10.0f);
 				ImGui::SliderFloat3("Camera Rot", &axisa.x, -40.0f, 40.0f);
 				ImGui::SliderFloat("Camera Rot angle", &ra, 0.0f, 360.0f);
-				ImGui::SliderInt("a", &a, 0.0f, 49.0f);
+				ImGui::SliderFloat("a", &a, -49.0f, 49.0f);
 				//ImGui::ColorEdit3("clear color", (float*)&clear_color); // Edit 3 floats representing a color
 
 				//ImGui::Checkbox("Demo Window", &show_demo_window);      // Edit bools storing our windows open/close state
@@ -205,9 +206,9 @@ int main(void)
 			/* Poll for and process events */
 			glfwPollEvents();
 		}
+		delete b_surface;
 	}
 
-	delete b_surface;
 	for (int i = 0; i < 5; i++)
 		delete[] control_points[i];
 	delete[] control_points;

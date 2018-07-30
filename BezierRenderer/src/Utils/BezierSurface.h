@@ -16,6 +16,7 @@ public:
 
 	inline vector<Vertex> GetVertices() const { return m_vertices; };
 	inline vector<unsigned int> GetIndices() const  { return m_indices; };
+	//inline void SetControlPoints(glm::vec4** cp, int rows, int cols) { m_control_points = cp; m_num_control_row = rows; m_num_control_col = cols; }
 
 	void EvaluateBezierSurface();
 
@@ -29,5 +30,7 @@ private:
 	inline static int Factorial(int n) { return (n == 0 || n == 1) ? 1 : n * Factorial(n - 1); }
 
 	void CalculateIndices();
+
+	glm::vec4 CalculateDerivativeSum(vector<glm::vec4> v, float t, int direction);
 	glm::vec3 CalculateNormal(float u, float v);
 };
