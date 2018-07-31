@@ -23,6 +23,7 @@
 
 #include "Utils/Vertex.h"
 #include "Utils/BezierSurface.h"
+#include "Utils/Material.h"
 
 int main(void)
 {
@@ -75,7 +76,11 @@ int main(void)
 
 	//------------------------------------//
 	{
-		BezierSurface* b_surface = new BezierSurface(5, 5, control_points);
+		Material b_material(glm::vec4(0.0f, 0.05f, 0.05, 1.0f),
+				glm::vec4(0.4f, 0.5f, 0.5f, 1.0f),
+				glm::vec4(0.04f, 0.7f, 0.7f, 1.0f), 0.78f, "u_Material");
+
+		BezierSurface* b_surface = new BezierSurface(5, 5, control_points, b_material);
 
 		GLCall(glEnable(GL_BLEND));
 		GLCall(glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA));
@@ -103,11 +108,8 @@ int main(void)
 
 		Shader shader("res/shaders/Basic.shader");
 		shader.Bind();
+
 		shader.SetUniform4f("u_LightPosition", 0.0f, 0.0f, 18.8f, 1.0f);
-		shader.SetUniform4f("u_AmbientProduct", 0.0f, 0.05f, 0.05, 1.0f);
-		shader.SetUniform4f("u_DiffuseProduct", 0.4f, 0.5f, 0.5f, 1.0f);
-		shader.SetUniform4f("u_SpecularProduct", 0.04f, 0.7f, 0.7f, 1.0f);
-		shader.SetUniform1f("u_Shininess", 0.78f);
 		shader.SetUniformMat4f("u_MVP", mvp);
 
 		Texture texture("res/textures/rubber.png");
@@ -172,9 +174,15 @@ int main(void)
 
 				for (int i = 0; i < b_surface->GetIndices().size(); i += 4)
 				{
+					shader.SetMaterial(b_material.GetUniformName(), b_material);
 					IndexBuffer iBuffer(&b_surface->GetIndices().at(i), 4);
 					renderer.Draw(vArray, iBuffer, shader, GL_TRIANGLE_FAN);
+
+					shader.SetMaterial(b_material.GetUniformName(), Material());
+					renderer.Draw(vArray, iBuffer, shader, GL_LINE_LOOP);
 				}
+
+				//b_surface->Draw(renderer, shader, vArray, false);
 
 			}
 

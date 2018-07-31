@@ -1,6 +1,7 @@
 #include "BezierSurface.h"
 #include <math.h> 
 #include <iostream>
+#include "../OpenGL/VertexBufferLayout.h"
 
 const int SAMPLING_RATE = 15;
 
@@ -14,6 +15,15 @@ BezierSurface::BezierSurface(int rows, int cols, glm::vec4 ** control_points)
 	:m_num_control_row(rows),
 	m_num_control_col(cols),
 	m_control_points(control_points)
+{
+	EvaluateBezierSurface();
+}
+
+BezierSurface::BezierSurface(int rows, int cols, glm::vec4 ** control_points, Material mat)
+	:m_num_control_row(rows),
+	m_num_control_col(cols),
+	m_control_points(control_points),
+	m_material(mat)
 {
 	EvaluateBezierSurface();
 }
@@ -89,11 +99,6 @@ void BezierSurface::CalculateIndices()
 
 glm::vec4 BezierSurface::CalculateDerivativeSum(vector<glm::vec4> v, float t, int direction)
 {
-
-	/*sum += ((-(degree -1 - n) * pow(1.0f - t, degree - n - 2) * pow(t, n) + n * pow(t, n - 1) *  pow(1.0f - t, degree -1 - n))
-	* Factorial(degree-1) / (Factorial(degree -1 - n) * Factorial(n) ))
-	* v.at(n);*/
-	/*std::cout << "P" << n << " * " << -(degree - 1 - n) << " *( (1-u)^" << degree - n - 2 << " * u^" << n << " + " << n << " * u^" << n - 1 << " * (1-u)^" << degree - 1 - n << ")* C(" << degree - 1 << ", " << n << ") + ";*/
 	int degree;
 	if (direction == 0)
 		degree = m_num_control_row - 1;
@@ -103,13 +108,11 @@ glm::vec4 BezierSurface::CalculateDerivativeSum(vector<glm::vec4> v, float t, in
 	glm::vec4 sum1;
 	glm::vec4 sum2;
 
-	//(derivative(u * (1-u) )) * C(n, k) * Pn
 	for (int n = 0; n < degree; n++)
 	{
 		sum1 += (Factorial(degree) / (Factorial(degree - n) * Factorial(n)))
 			* pow(t, n) * pow(1.0f - t, degree - n)
 			* (v.at( n + 1 ));
-		//std::cout << "s1:" << n + 1 << std::endl;
 	}
 
 	for (int n = 0; n < degree; n++)
@@ -117,7 +120,6 @@ glm::vec4 BezierSurface::CalculateDerivativeSum(vector<glm::vec4> v, float t, in
 		sum2 += (Factorial(degree) / (Factorial(degree - n) * Factorial(n)))
 			* pow(t, n) * pow(1.0f - t, degree - n)
 			* (v.at( n ));
-		//std::cout << "s2:" << n << std::endl;
 	}
 	return (float)(degree +1) * (sum1 - sum2);
 }

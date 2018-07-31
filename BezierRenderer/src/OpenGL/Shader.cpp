@@ -148,6 +148,14 @@ void Shader::SetUniform1i(const std::string & name, int v0)
 	GLCall(glUniform1i(location, v0));
 }
 
+void Shader::SetMaterial(const std::string & name, Material v0)
+{
+	SetUniform4f(name + ".ambient", v0.GetAmbient().r, v0.GetAmbient().g, v0.GetAmbient().b, v0.GetAmbient().a);
+	SetUniform4f(name + ".diffuse", v0.GetDiffuse().r, v0.GetDiffuse().g, v0.GetDiffuse().b, v0.GetDiffuse().a);
+	SetUniform4f(name + ".specular", v0.GetSpecular().r, v0.GetSpecular().g, v0.GetSpecular().b, v0.GetSpecular().a);
+	SetUniform1f(name + ".shininess", v0.GetShininess());
+}
+
 //TODO: Implement rest of the api concerning uniforms
 
 unsigned int Shader::GetUniformLocation(const std::string & name)

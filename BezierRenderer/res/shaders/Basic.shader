@@ -12,7 +12,6 @@ out vec3 L, E, N;
 out float ldistance;
 
 uniform vec4 u_LightPosition;
-
 uniform mat4 u_MVP;
 
 void main()
@@ -48,17 +47,21 @@ void main()
 #shader fragment
 #version 430 core
 
+struct Material
+{
+	vec4 ambient;
+	vec4 diffuse;
+	vec4 specular;
+	float shininess;
+};
+
 layout(location = 0) out vec4 color;
 
 in vec2 v_TexCoord;
 in vec3 L, E, N;
 in float ldistance;
 
-//uniform vec4 u_Color;
-uniform vec4 u_AmbientProduct;
-uniform vec4 u_DiffuseProduct;
-uniform vec4 u_SpecularProduct;
-uniform float u_Shininess;
+uniform Material u_Material;
 uniform sampler2D u_Texture;
 
 void main()
@@ -67,13 +70,13 @@ void main()
 	vec4 fColor;
 
 	vec3 H = normalize(L + E);
-	vec4 ambient = u_AmbientProduct;
+	vec4 ambient = u_Material.ambient;
 
 	float Kd = max(dot(L, N), 0.0);
-	vec4  diffuse = Kd * u_DiffuseProduct;
+	vec4  diffuse = Kd * u_Material.diffuse;
 
-	float Ks = pow(max(dot(N, H), 0.0), u_Shininess);
-	vec4  specular = Ks * u_SpecularProduct;
+	float Ks = pow(max(dot(N, H), 0.0), u_Material.shininess);
+	vec4  specular = Ks * u_Material.specular;
 
 	if (dot(L, N) < 0.0) specular = vec4(0.0, 0.0, 0.0, 1.0);
 

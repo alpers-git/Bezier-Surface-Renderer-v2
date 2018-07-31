@@ -2,7 +2,9 @@
 #include <string>
 #include <unordered_map>
 #include "glm/glm.hpp"
+#include "../Utils/Material.h"
 
+class Material;
 
 struct ShaderProgramSource
 {
@@ -37,4 +39,5 @@ public:
 	void SetUniform3f(const std::string& name, float v0, float v1, float v2);
 	void SetUniform1f(const std::string& name, float v0);
 	void SetUniform1i(const std::string& name, int v0);
+	void SetMaterial(const std::string& name, Material v0);
 };

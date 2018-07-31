@@ -129,6 +129,7 @@
     <ClCompile Include="src\OpenGL\VertexArray.cpp" />
     <ClCompile Include="src\OpenGL\VertexBuffer.cpp" />
     <ClCompile Include="src\Utils\BezierSurface.cpp" />
+    <ClCompile Include="src\Utils\Material.cpp" />
     <ClCompile Include="src\Utils\Vertex.cpp" />
     <ClCompile Include="src\vendor\glm\detail\glm.cpp" />
     <ClCompile Include="src\vendor\imgui\imgui.cpp" />
@@ -146,6 +147,7 @@
     <ClInclude Include="src\OpenGL\VertexBuffer.h" />
     <ClInclude Include="src\OpenGL\VertexBufferLayout.h" />
     <ClInclude Include="src\Utils\BezierSurface.h" />
+    <ClInclude Include="src\Utils\Material.h" />
     <ClInclude Include="src\Utils\Vertex.h" />
     <ClInclude Include="src\vendor\glm\common.hpp" />
     <ClInclude Include="src\vendor\glm\detail\func_common.hpp" />
