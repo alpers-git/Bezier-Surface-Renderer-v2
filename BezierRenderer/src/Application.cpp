@@ -24,6 +24,13 @@
 #include "Utils/Vertex.h"
 #include "Utils/BezierSurface.h"
 #include "Utils/Material.h"
+#include "Utils/PickerCursor.h"
+
+float cursor_x, cursor_y;
+bool unhandled_callback, clicked;
+
+static void CursorPositionCallback(GLFWwindow * window, double x_pos, double y_pos);
+static void MouseButtonCallback(GLFWwindow* window, int button, int action, int mods);
 
 int main(void)
 {
@@ -47,6 +54,11 @@ int main(void)
 
 	/* Make the window's context current */
 	glfwMakeContextCurrent(window);
+	/*PickerCursor cursor;
+	cursor.SetCursorPosCallBack(window);*/
+	//glfwSetMouseButtonCallback(window, MouseButtonCallback);
+	glfwSetCursorPosCallback(window, CursorPositionCallback);
+	
 
 	if (glewInit() != GLEW_OK)
 		std::cout << "Error!" << std::endl;
@@ -76,9 +88,9 @@ int main(void)
 
 	//------------------------------------//
 	{
-		Material b_material(glm::vec4(0.0f, 0.05f, 0.05, 1.0f),
-				glm::vec4(0.4f, 0.5f, 0.5f, 1.0f),
-				glm::vec4(0.04f, 0.7f, 0.7f, 1.0f), 0.78f, "u_Material");
+		Material b_material(glm::vec4(0.0f, 0.0f, 0.0f, 1.0f),
+				glm::vec4(0.2f, 0.7f, 0.5f, 1.0f),
+				glm::vec4(1.0f, 1.0f, 1.0f, 1.0f), 10.78f, "u_Material");
 
 		BezierSurface* b_surface = new BezierSurface(5, 5, control_points, b_material);
 
@@ -105,6 +117,11 @@ int main(void)
 		glm::mat4 model = glm::rotate(glm::mat4(1.0f), glm::radians(0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
 
 		glm::mat4 mvp = proj * view * model;
+
+		//-----------------------------------------------------------------//
+		int width, height;
+		glfwGetWindowSize(window, &width, &height);
+		//-----------------------------------------------------------------//
 
 		Shader shader("res/shaders/Basic.shader");
 		shader.Bind();
@@ -136,18 +153,25 @@ int main(void)
 		bool show_demo_window = true;
 		bool show_another_window = false;
 
-		glm::vec3 cam_pos(0.0f, 0.0f, -4.0f);
-		glm::vec3 axisa = glm::vec3(0.0f, 1.0f, 0.6f);
+		glm::vec3 ligth_pos(0.0f, 0.0f, -4.0f);
+		glm::vec3 c_center = glm::vec3(0.0f, 0.0f, 0.0f);
 		ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
 
-		float ra = 0.0f;
+		float zoom = 5.0f;
 		float a = 0.0f;
 
 		GLCall(glClearColor(0.86f, 0.86f, 0.86f, 1.0f));
 
+		int ind_x=2, ind_y=2;
+
 		/* Loop until the user closes the window */
 		while (!glfwWindowShouldClose(window))
 		{
+			int mouseState = glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_RIGHT);
+			if (mouseState == GLFW_PRESS)
+				clicked = true;
+			else
+				clicked = false;
 			/* Render here */
 			renderer.Clear();
 
@@ -155,18 +179,18 @@ int main(void)
 
 			shader.Bind();
 			{
-				model = glm::scale(glm::mat4(1.0f), glm::vec3(0.3f, 0.3f, 0.3f));
-				view = glm::scale(glm::mat4(1.0f), glm::vec3(1.0f, 1.0f, 1.0f));
-				view = glm::translate(view, glm::vec3(0.0f, 0.0f, -4.0f));
-				view = glm::rotate(view, glm::radians(ra), axisa);
+				model = glm::scale(glm::mat4(1.0f), glm::vec3(1.0f, 1.0f, 1.0f));
+				view = glm::lookAt(glm::vec3(0.0f, 0.0f, zoom),
+					c_center,
+					glm::vec3(0.0f, 1.0f, 0.0f));
 				mvp = proj * view * model;
 				glm::mat4 normal_matrix = glm::inverse(glm::transpose(mvp));
 
-				shader.SetUniform4f("u_LightPosition", cam_pos.x, cam_pos.y, cam_pos.z, 1.0f);
+				shader.SetUniform4f("u_LightPosition", ligth_pos.x, ligth_pos.y, ligth_pos.z, 1.0f);
 				shader.SetUniformMat4f("u_MVP", mvp);
 				shader.SetUniformMat4f("u_NormalMat", normal_matrix);
 
-				control_points[2][2].z = a;
+				control_points[ind_x][ind_y].z = a;
 				b_surface->EvaluateBezierSurface();//Recalculating surface
 
 				VertexBuffer vBuffer = VertexBuffer(&b_surface->GetVertices().at(0), sizeof(Vertex) * b_surface->GetVertices().size());
@@ -178,19 +202,57 @@ int main(void)
 					IndexBuffer iBuffer(&b_surface->GetIndices().at(i), 4);
 					renderer.Draw(vArray, iBuffer, shader, GL_TRIANGLE_FAN);
 
-					shader.SetMaterial(b_material.GetUniformName(), Material());
-					renderer.Draw(vArray, iBuffer, shader, GL_LINE_LOOP);
+					/*shader.SetMaterial(b_material.GetUniformName(), Material());
+					renderer.Draw(vArray, iBuffer, shader, GL_LINE_LOOP);*/
 				}
 
-				//b_surface->Draw(renderer, shader, vArray, false);
+				//-----------------------------------------------------------------//
+				if (clicked)
+				{
+
+					float x = (2.0f * cursor_x) / width - 1.0f;
+					float y = 1.0f - (2.0f * cursor_y) / height;
+
+					glm::vec4 ray_clip = glm::vec4(x, y, -1.0, 1.0);
+
+					//std::cout << "x: " << x << ", y: " << y <<std::endl;
+					glm::vec4 ray_eye = glm::inverse(proj) * ray_clip;
+					ray_eye.z = -1.0f;
+					ray_eye.w = 0.0f;
+					glm::vec3 ray_wor = (glm::inverse(view) * ray_eye);
+					ray_wor = glm::normalize(ray_wor);
+
+					float min_distance = FLT_MAX;
+
+					for (int i = 0; i < 5; i++)
+					{
+						for (int j = 0; j < 5; j++)
+						{
+							float t = (model * view * control_points[i][j]).z / ray_wor.z;
+							glm::vec3 hit_point = ray_wor * t;
+
+							if (glm::distance(hit_point, glm::vec3(model * view * control_points[i][j])) < min_distance)
+							{
+								min_distance = glm::distance(hit_point, glm::vec3(model * view * control_points[i][j]));
+								ind_x = i;
+								ind_y = j;
+								std::cout << "selected cp: " << ind_x << ind_y<< std::endl;
+							}
+						}
+					}
+
+					//std::cout << hit_point.x << ", " << hit_point.y << ", " << hit_point.z << ", " << std::endl;
+					//unhandled_callback = false;
+				}
+				//-----------------------------------------------------------------//
 
 			}
 
 			{
 				ImGui::Text("Transforms");                           // Display some text (you can use a format string too)
-				ImGui::SliderFloat3("Camera Pos", &cam_pos.x, -10.0f, 10.0f);
-				ImGui::SliderFloat3("Camera Rot", &axisa.x, -40.0f, 40.0f);
-				ImGui::SliderFloat("Camera Rot angle", &ra, 0.0f, 360.0f);
+				ImGui::SliderFloat3("Ligth Pos", &ligth_pos.x, -10.0f, 10.0f);
+				ImGui::SliderFloat3("Camera Center", &c_center.x, -10.0f, 10.0f);
+				ImGui::SliderFloat("Camera Zoom", &zoom, -10.0f, 10.0f);
 				ImGui::SliderFloat("a", &a, -49.0f, 49.0f);
 				//ImGui::ColorEdit3("clear color", (float*)&clear_color); // Edit 3 floats representing a color
 
@@ -224,4 +286,34 @@ int main(void)
 	ImGui::DestroyContext();
 	glfwTerminate();
 	return 0;
+}
+
+static void CursorPositionCallback(GLFWwindow * window, double x_pos, double y_pos)
+{
+	cursor_x = x_pos;
+	cursor_y = y_pos;
+	//unhandled_callback = true;
+	/*int width, height;
+	glfwGetWindowSize(window, &width, &height);
+	float x = (2.0f * x_pos) / width - 1.0f;
+	float y = 1.0f - (2.0f * y_pos) / height;
+
+	glm::vec4 ray_clip = glm::vec4(x, y, -1.0, 1.0);
+
+	//std::cout << "x: " << x << ", y: " << y <<std::endl;
+	glm::vec4 ray_eye = glm::inverse(m_projection_mat) * ray_clip;*/
+}
+
+static void MouseButtonCallback(GLFWwindow* window, int button, int action, int mods)
+{
+	std::cout << "aaaa " << std::endl;
+	if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS)
+	{
+		clicked = true;
+	}
+
+	/*if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_RELEASE)
+	{
+		clicked = false;
+	}*/
 }

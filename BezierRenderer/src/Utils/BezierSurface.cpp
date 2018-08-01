@@ -3,7 +3,7 @@
 #include <iostream>
 #include "../OpenGL/VertexBufferLayout.h"
 
-const int SAMPLING_RATE = 15;
+const int SAMPLING_RATE = 25;
 
 BezierSurface::BezierSurface()
 	: m_num_control_row(0),

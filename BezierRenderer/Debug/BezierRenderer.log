@@ -1,6 +1,0 @@
-﻿  BezierSurface.cpp
-  Application.cpp
-c:\users\alper\desktop\opengl\bezierrenderer\bezierrenderer\src\application.cpp(175): warning C4018: '<': signed/unsigned mismatch
-  Generating Code...
-  BezierRenderer.vcxproj -> C:\Users\Alper\Desktop\opengl\BezierRenderer\Debug\BezierRenderer.exe
-  BezierRenderer.vcxproj -> C:\Users\Alper\Desktop\opengl\BezierRenderer\Debug\BezierRenderer.pdb (Partial PDB)
