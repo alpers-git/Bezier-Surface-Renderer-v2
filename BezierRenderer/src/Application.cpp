@@ -25,6 +25,8 @@
 #include "Utils/BezierSurface.h"
 #include "Utils/Material.h"
 #include "Utils/PickerCursor.h"
+#include "Scene\SceneObject.h"
+#include "Scene/DraggablePoint.h"
 
 float cursor_x, cursor_y;
 bool unhandled_callback, clicked;
@@ -88,11 +90,15 @@ int main(void)
 
 	//------------------------------------//
 	{
-		Material b_material(glm::vec4(0.0f, 0.0f, 0.0f, 1.0f),
-				glm::vec4(0.2f, 0.7f, 0.5f, 1.0f),
-				glm::vec4(1.0f, 1.0f, 1.0f, 1.0f), 10.78f, "u_Material");
+		Shader shader("res/shaders/Basic.shader");
+		shader.Bind();
 
-		BezierSurface* b_surface = new BezierSurface(5, 5, control_points, b_material);
+		Texture texture("res/textures/metal.jpg", "u_Texture");
+
+		Material b_material(glm::vec4(0.2f, 0.2f, 0.2f, 1.0f),
+				glm::vec4(0.0f, 0.0f, 1.0f, 1.0f),
+				glm::vec4(1.0f, 1.0f, 1.0f, 1.0f), 1000.0f, "u_Material");
+		BezierSurface* b_surface = new BezierSurface(5, 5, control_points, MaterialTexture(b_material, texture));
 
 		GLCall(glEnable(GL_BLEND));
 		GLCall(glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA));
@@ -122,16 +128,10 @@ int main(void)
 		int width, height;
 		glfwGetWindowSize(window, &width, &height);
 		//-----------------------------------------------------------------//
-
-		Shader shader("res/shaders/Basic.shader");
 		shader.Bind();
 
 		shader.SetUniform4f("u_LightPosition", 0.0f, 0.0f, 18.8f, 1.0f);
 		shader.SetUniformMat4f("u_MVP", mvp);
-
-		Texture texture("res/textures/rubber.png");
-		texture.Bind();
-		shader.SetUniform1i("u_Texture", 0);
 
 		vArray.Unbind();
 		shader.Unbind();
@@ -146,14 +146,10 @@ int main(void)
 		ImGui_ImplGlfwGL3_Init(window, true);
 		ImGui::StyleColorsDark();
 
-		int num_indices = 36;
-		glm::vec4 color(0.3f, 0.1f, 0.9f, 1.0f);
-		bool increment = true;
-
 		bool show_demo_window = true;
 		bool show_another_window = false;
 
-		glm::vec3 ligth_pos(0.0f, 0.0f, -4.0f);
+		glm::vec3 ligth_pos(0.0f, 0.0f, 4.0f);
 		glm::vec3 c_center = glm::vec3(0.0f, 0.0f, 0.0f);
 		ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
 
@@ -161,8 +157,11 @@ int main(void)
 		float a = 0.0f;
 
 		GLCall(glClearColor(0.86f, 0.86f, 0.86f, 1.0f));
+		GLCall(glLineWidth(1.5f));
 
 		int ind_x=2, ind_y=2;
+
+		DraggablePoint point = DraggablePoint();
 
 		/* Loop until the user closes the window */
 		while (!glfwWindowShouldClose(window))
@@ -184,27 +183,11 @@ int main(void)
 					c_center,
 					glm::vec3(0.0f, 1.0f, 0.0f));
 				mvp = proj * view * model;
-				glm::mat4 normal_matrix = glm::inverse(glm::transpose(mvp));
+				glm::mat4 normal_matrix = glm::transpose(glm::inverse(model));
 
 				shader.SetUniform4f("u_LightPosition", ligth_pos.x, ligth_pos.y, ligth_pos.z, 1.0f);
 				shader.SetUniformMat4f("u_MVP", mvp);
 				shader.SetUniformMat4f("u_NormalMat", normal_matrix);
-
-				control_points[ind_x][ind_y].z = a;
-				b_surface->EvaluateBezierSurface();//Recalculating surface
-
-				VertexBuffer vBuffer = VertexBuffer(&b_surface->GetVertices().at(0), sizeof(Vertex) * b_surface->GetVertices().size());
-				vArray.AddBuffer(vBuffer, layout);
-
-				for (int i = 0; i < b_surface->GetIndices().size(); i += 4)
-				{
-					shader.SetMaterial(b_material.GetUniformName(), b_material);
-					IndexBuffer iBuffer(&b_surface->GetIndices().at(i), 4);
-					renderer.Draw(vArray, iBuffer, shader, GL_TRIANGLE_FAN);
-
-					/*shader.SetMaterial(b_material.GetUniformName(), Material());
-					renderer.Draw(vArray, iBuffer, shader, GL_LINE_LOOP);*/
-				}
 
 				//-----------------------------------------------------------------//
 				if (clicked)
@@ -236,7 +219,7 @@ int main(void)
 								min_distance = glm::distance(hit_point, glm::vec3(model * view * control_points[i][j]));
 								ind_x = i;
 								ind_y = j;
-								std::cout << "selected cp: " << ind_x << ind_y<< std::endl;
+								std::cout << "selected cp: " << ind_x << ind_y << std::endl;
 							}
 						}
 					}
@@ -246,11 +229,53 @@ int main(void)
 				}
 				//-----------------------------------------------------------------//
 
+				control_points[ind_x][ind_y].z = a;
+				b_surface->EvaluateBezierSurface();					//Recalculating surface
+				b_surface->Draw(renderer, &shader, &vArray, true);	//Rendering
+
+				for (int i = 0; i < 5; i++)
+				{
+					for (int j = 0; j < 5; j++)
+					{
+						point.MoveTo(control_points[i][j]);
+						point.Scale(glm::vec3(0.02, 0.02, 0.02));
+						model = point.GetTransform();
+						mvp = proj * view * model;
+						shader.SetUniformMat4f("u_MVP", mvp);
+
+						if (ind_x == i && ind_y == j)
+						{
+							Material m(glm::vec4(0.0f, 1.0f, 0.0f, 1.0f), glm::vec4(0.0f, 0.0f, 0.0f, 1.0f), glm::vec4(0.0f, 0.0f, 0.0f, 1.0f), 0.0f, point.GetMaterial().GetUniformName());
+							point.SetMaterial(m);
+						}
+						else
+						{
+							Material m2(glm::vec4(1.0f, 1.0f, 1.0f, 1.0f),
+								glm::vec4(0.0f, 0.0f, 0.0f, 0.0f),
+								glm::vec4(0.0f, 0.0f, 0.0f, 0.0f),
+								10.0f, "u_Material");
+							point.SetMaterial(m2);
+						}
+
+						point.Draw(renderer, &shader, &vArray);
+						point.Scale(glm::vec3(50, 50, 50));
+					}
+				}
+
+				point.MoveTo(ligth_pos);
+				point.Scale(glm::vec3(0.02, 0.02, 0.02));
+				model = point.GetTransform();
+				mvp = proj * view * model;
+				shader.SetUniformMat4f("u_MVP", mvp);
+
+				point.Draw(renderer, &shader, &vArray);
+				point.Scale(glm::vec3(50, 50, 50));
+
 			}
 
 			{
 				ImGui::Text("Transforms");                           // Display some text (you can use a format string too)
-				ImGui::SliderFloat3("Ligth Pos", &ligth_pos.x, -10.0f, 10.0f);
+				ImGui::SliderFloat3("Ligth Pos", &ligth_pos.x, -10.0f, 15.0f);
 				ImGui::SliderFloat3("Camera Center", &c_center.x, -10.0f, 10.0f);
 				ImGui::SliderFloat("Camera Zoom", &zoom, -10.0f, 10.0f);
 				ImGui::SliderFloat("a", &a, -49.0f, 49.0f);

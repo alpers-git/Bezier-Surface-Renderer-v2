@@ -1,36 +1,48 @@
 #include "BezierSurface.h"
 #include <math.h> 
 #include <iostream>
-#include "../OpenGL/VertexBufferLayout.h"
 
 const int SAMPLING_RATE = 25;
 
 BezierSurface::BezierSurface()
-	: m_num_control_row(0),
+	: SceneObject(),
+	m_num_control_row(0),
 	m_num_control_col(0),
 	m_control_points(NULL)
-{}
-
+{
+	m_layout.Push<float>(4);
+	m_layout.Push<float>(3);
+	m_layout.Push<float>(2);
+}
+ 
 BezierSurface::BezierSurface(int rows, int cols, glm::vec4 ** control_points)
-	:m_num_control_row(rows),
+	: SceneObject(),
+	m_num_control_row(rows),
 	m_num_control_col(cols),
 	m_control_points(control_points)
 {
+	m_layout.Push<float>(4);
+	m_layout.Push<float>(3);
+	m_layout.Push<float>(2);
+
 	EvaluateBezierSurface();
 }
 
-BezierSurface::BezierSurface(int rows, int cols, glm::vec4 ** control_points, Material mat)
-	:m_num_control_row(rows),
+BezierSurface::BezierSurface(int rows, int cols, glm::vec4 ** control_points, MaterialTexture mat_tex)
+	: SceneObject(glm::vec3(), glm::mat4(), mat_tex),
+	m_num_control_row(rows),
 	m_num_control_col(cols),
-	m_control_points(control_points),
-	m_material(mat)
+	m_control_points(control_points)
 {
+	m_layout.Push<float>(4);
+	m_layout.Push<float>(3);
+	m_layout.Push<float>(2);
+
 	EvaluateBezierSurface();
 }
 
 BezierSurface::~BezierSurface()
-{
-}
+{}
 
 glm::vec4 BezierSurface::CalculatePointOnBezierCurve(float t, glm::vec4 * calculation_points, int len)
 {
@@ -73,21 +85,61 @@ void BezierSurface::EvaluateBezierSurface()
 	Vertex v;
 	for (int i = 0; i < SAMPLING_RATE; i++)
 		for (int j = 0; j < SAMPLING_RATE; j++) {
-			v.SetPosition( CalculatePointOnBezierSurface( ((float)i) / ((float)SAMPLING_RATE - 1.0f), ((float)j) / ((float)SAMPLING_RATE - 1.0f),
-				m_control_points, m_num_control_row, m_num_control_col ));
-			v.SetTextureCoords(glm::vec2(( (float)i) / ((float)SAMPLING_RATE - 1.0f), ((float)j) / ((float)SAMPLING_RATE - 1.0f)));
-			v.SetNormal( CalculateNormal(((float)i) / ((float)SAMPLING_RATE), ((float)j) / ((float)SAMPLING_RATE)));
+			v.SetPosition(CalculatePointOnBezierSurface(((float)i) / ((float)SAMPLING_RATE - 1.0f), ((float)j) / ((float)SAMPLING_RATE - 1.0f),
+				m_control_points, m_num_control_row, m_num_control_col));
+			v.SetTextureCoords(glm::vec2(((float)i) / ((float)SAMPLING_RATE - 1.0f), ((float)j) / ((float)SAMPLING_RATE - 1.0f)));
+			v.SetNormal(CalculateNormal(((float)i) / ((float)SAMPLING_RATE), ((float)j) / ((float)SAMPLING_RATE)));
 			m_vertices.push_back(v);
 		}
 	CalculateIndices();
 }
 
+void BezierSurface::Draw(Renderer renderer, Shader* shader, VertexArray* vArray, bool render_wireframe)
+{
+	VertexBuffer vBuffer = VertexBuffer(&GetVertices().at(0), sizeof(Vertex) * GetVertices().size());
+	shader->Bind();
+	vArray->AddBuffer(vBuffer, m_layout);
+
+	m_mat_tex.tex.Bind();
+	shader->SetUniform1i(m_mat_tex.tex.GetUniformName(), 0);
+
+	for (int i = 0; i < GetIndices().size(); i += 4)
+	{
+		shader->SetMaterial(m_mat_tex.mat.GetUniformName(), m_mat_tex.mat);
+		IndexBuffer iBuffer(&GetIndices().at(i), 4);
+		renderer.Draw(*vArray, iBuffer, *shader, GL_TRIANGLE_FAN);
+
+		if (render_wireframe)
+		{
+			shader->SetMaterial(m_mat_tex.mat.GetUniformName(), Material());
+			renderer.Draw(*vArray, iBuffer, *shader, GL_LINE_LOOP);
+		}
+	}
+}
+
+void BezierSurface::Draw(Renderer renderer, Shader* shader, VertexArray* vArray)
+{
+	VertexBuffer vBuffer = VertexBuffer(&GetVertices().at(0), sizeof(Vertex) * GetVertices().size());
+	shader->Bind();
+	vArray->AddBuffer(vBuffer, m_layout);
+
+	m_mat_tex.tex.Bind();
+	shader->SetUniform1i(m_mat_tex.tex.GetUniformName(), 0);
+
+	for (int i = 0; i < GetIndices().size(); i += 4)
+	{
+		shader->SetMaterial(m_mat_tex.mat.GetUniformName(), m_mat_tex.mat);
+		IndexBuffer iBuffer(&GetIndices().at(i), 4);
+		renderer.Draw(*vArray, iBuffer, *shader, GL_TRIANGLE_FAN);
+	}
+}
+
 void BezierSurface::CalculateIndices()
 {
 	m_indices.clear();
-	for (int j = 1; j <= SAMPLING_RATE * (SAMPLING_RATE -1); j++) {
+	for (int j = 1; j <= SAMPLING_RATE * (SAMPLING_RATE - 1); j++) {
 
-		if (!((j - 1) % SAMPLING_RATE == (SAMPLING_RATE - 1 )))
+		if (!((j - 1) % SAMPLING_RATE == (SAMPLING_RATE - 1)))
 		{
 			m_indices.push_back(j - 1);
 			m_indices.push_back(j);
@@ -112,16 +164,16 @@ glm::vec4 BezierSurface::CalculateDerivativeSum(vector<glm::vec4> v, float t, in
 	{
 		sum1 += (Factorial(degree) / (Factorial(degree - n) * Factorial(n)))
 			* pow(t, n) * pow(1.0f - t, degree - n)
-			* (v.at( n + 1 ));
+			* (v.at(n + 1));
 	}
 
 	for (int n = 0; n < degree; n++)
 	{
 		sum2 += (Factorial(degree) / (Factorial(degree - n) * Factorial(n)))
 			* pow(t, n) * pow(1.0f - t, degree - n)
-			* (v.at( n ));
+			* (v.at(n));
 	}
-	return (float)(degree +1) * (sum1 - sum2);
+	return (float)(degree + 1) * (sum1 - sum2);
 }
 
 glm::vec3 BezierSurface::CalculateNormal(float u, float v)
@@ -134,11 +186,11 @@ glm::vec3 BezierSurface::CalculateNormal(float u, float v)
 		{
 			p.push_back(m_control_points[i][j]);
 		}
-		vCurve.push_back( CalculatePointOnBezierCurve(v,&p.at(0), p.size()));
+		vCurve.push_back(CalculatePointOnBezierCurve(v, &p.at(0), p.size()));
 		p.clear();
 	}
 
-	glm::vec3 dU= CalculateDerivativeSum(vCurve, u, 1);
+	glm::vec3 dU = CalculateDerivativeSum(vCurve, u, 1);
 
 	//-----------------------------------------------------------------------------------\\
 

@@ -6,6 +6,14 @@ Material::Material()
 	m_specular(glm::vec4())
 {}
 
+Material::Material(const Material & other)
+	:m_ambient(other.m_ambient),
+	m_diffuse(other.m_diffuse),
+	m_specular(other.m_specular),
+	m_shininess(other.m_shininess),
+	m_glsl_uniform_name(string(other.m_glsl_uniform_name))
+{}
+
 Material::~Material()
 {}
 

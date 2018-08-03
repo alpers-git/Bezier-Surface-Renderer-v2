@@ -20,6 +20,36 @@ Shader::Shader(const std::string & filepath)
 	m_RendererID = CreateShader(src.VertexSource, src.FragmentSource);
 }
 
+Shader::Shader(const Shader & s)
+	:m_Filepath(s.m_Filepath),
+	m_RendererID(s.m_RendererID),
+	m_UniformLocationCache(s.m_UniformLocationCache)
+{
+	ShaderProgramSource src = ParseShader(m_Filepath);
+	std::cout << src.VertexSource << std::endl;
+	std::cout << "-------------------------------------" << std::endl;
+	std::cout << src.FragmentSource << std::endl;
+	m_RendererID = CreateShader(src.VertexSource, src.FragmentSource);
+}
+
+Shader & Shader::operator=(Shader rhs)
+{
+	if (this != &rhs)
+	{
+		m_Filepath = rhs.m_Filepath;
+		m_RendererID = rhs.m_RendererID;
+		m_UniformLocationCache = rhs.m_UniformLocationCache;
+
+		ShaderProgramSource src = ParseShader(m_Filepath);
+		std::cout << src.VertexSource << std::endl;
+		std::cout << "-------------------------------------" << std::endl;
+		std::cout << src.FragmentSource << std::endl;
+		m_RendererID = CreateShader(src.VertexSource, src.FragmentSource);
+
+	}
+	return *this;
+}
+
 Shader::~Shader()
 {
 	GLCall(glDeleteProgram(m_RendererID));

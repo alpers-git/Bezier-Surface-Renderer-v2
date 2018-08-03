@@ -26,6 +26,8 @@ private:
 
 public:
 	Shader(const std::string& filepath);
+	Shader(const Shader& s);
+	Shader &operator=(Shader rhs);
 	~Shader();
 
 	void Bind() const;
