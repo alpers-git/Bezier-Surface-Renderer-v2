@@ -5,6 +5,7 @@
 #include <fstream>
 #include <string>
 #include <sstream>
+#include <math.h>
 
 #include "OpenGl/Renderer.h"
 #include "OpenGl/VertexBuffer.h"
@@ -77,7 +78,7 @@ int main(void)
 	{glm::vec4(-1, 0, 1, 1), glm::vec4(-0.5, 0, 1, 1), glm::vec4(0, 0, 0.0f, 1), glm::vec4(0.5, 0, 1, 1), glm::vec4(1, 0, 1, 1)},
 	{glm::vec4(-1, 0.5, 1, 1), glm::vec4(-0.5, 0.5, 1, 1), glm::vec4(0, 0.5, 1.0f, 1), glm::vec4(0.5, 0.5, 1, 1), glm::vec4(1, 0.5, 1, 1)},
 	{glm::vec4(-1, 1, 1, 1), glm::vec4(-0.5, 1, 1, 1), glm::vec4(0, 1, 1, 1), glm::vec4(0.5, 1, 1, 1), glm::vec4(1, 1, 1, 1) } };
-
+	
 	for (int i = 0; i < 5; i++)
 	{
 		control_points[i] = new glm::vec4[5];
@@ -104,14 +105,14 @@ int main(void)
 		GLCall(glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA));
 
 		VertexArray vArray;
+		VertexBufferLayout layout;
 		VertexBuffer vBuffer(&b_surface->GetVertices().at(0), sizeof(Vertex) * b_surface->GetVertices().size());
 
-		VertexBufferLayout layout;
 		layout.Push<float>(4);
 		layout.Push<float>(3);
 		layout.Push<float>(2);
-
 		vArray.AddBuffer(vBuffer, layout);
+
 
 		GLCall(glEnableVertexAttribArray(0));
 		GLCall(glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, sizeof(Vertex), 0));
@@ -154,7 +155,14 @@ int main(void)
 		ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
 
 		float zoom = 5.0f;
-		float a = 0.0f;
+
+		float old_a = 0.0f;
+		float a = 0.0f;				
+		MVP mvp2;
+		mvp2.proj = proj;
+		mvp2.view = view;
+		mvp2.model = model;
+		mvp2.uni_name = "u_MVP";
 
 		GLCall(glClearColor(0.86f, 0.86f, 0.86f, 1.0f));
 		GLCall(glLineWidth(1.5f));
@@ -162,7 +170,9 @@ int main(void)
 		int ind_x=2, ind_y=2;
 
 		DraggablePoint point = DraggablePoint();
+		//b_surface->SetTransformName("u_Model");
 
+		float t = 0.0f;
 		/* Loop until the user closes the window */
 		while (!glfwWindowShouldClose(window))
 		{
@@ -178,7 +188,8 @@ int main(void)
 
 			shader.Bind();
 			{
-				model = glm::scale(glm::mat4(1.0f), glm::vec3(1.0f, 1.0f, 1.0f));
+				//b_surface->MoveTo(glm::vec3(0.0f, 2*sin(t), 0.0f));
+				model = b_surface->GetTransform();
 				view = glm::lookAt(glm::vec3(0.0f, 0.0f, zoom),
 					c_center,
 					glm::vec3(0.0f, 1.0f, 0.0f));
@@ -187,7 +198,10 @@ int main(void)
 
 				shader.SetUniform4f("u_LightPosition", ligth_pos.x, ligth_pos.y, ligth_pos.z, 1.0f);
 				shader.SetUniformMat4f("u_MVP", mvp);
+				//shader.SetUniformMat4f("u_View", view);
+				//shader.SetUniformMat4f("u_Proj", proj);
 				shader.SetUniformMat4f("u_NormalMat", normal_matrix);
+				t += 0.01;
 
 				//-----------------------------------------------------------------//
 				if (clicked)
@@ -230,43 +244,29 @@ int main(void)
 				//-----------------------------------------------------------------//
 
 				control_points[ind_x][ind_y].z = a;
-				b_surface->EvaluateBezierSurface();					//Recalculating surface
-				b_surface->Draw(renderer, &shader, &vArray, true);	//Rendering
-
-				for (int i = 0; i < 5; i++)
+				if (old_a != a)
 				{
-					for (int j = 0; j < 5; j++)
-					{
-						point.MoveTo(control_points[i][j]);
-						point.Scale(glm::vec3(0.02, 0.02, 0.02));
-						model = point.GetTransform();
-						mvp = proj * view * model;
-						shader.SetUniformMat4f("u_MVP", mvp);
-
-						if (ind_x == i && ind_y == j)
-						{
-							Material m(glm::vec4(0.0f, 1.0f, 0.0f, 1.0f), glm::vec4(0.0f, 0.0f, 0.0f, 1.0f), glm::vec4(0.0f, 0.0f, 0.0f, 1.0f), 0.0f, point.GetMaterial().GetUniformName());
-							point.SetMaterial(m);
-						}
-						else
-						{
-							Material m2(glm::vec4(1.0f, 1.0f, 1.0f, 1.0f),
-								glm::vec4(0.0f, 0.0f, 0.0f, 0.0f),
-								glm::vec4(0.0f, 0.0f, 0.0f, 0.0f),
-								10.0f, "u_Material");
-							point.SetMaterial(m2);
-						}
-
-						point.Draw(renderer, &shader, &vArray);
-						point.Scale(glm::vec3(50, 50, 50));
-					}
+					b_surface->EvaluateBezierSurface();					//Recalculating surface
+					old_a = a;
 				}
+				b_surface->Draw(renderer, &shader, &vArray);			//Rendering
+				b_surface->DrawWireFrame(renderer, &shader, &vArray);	//Rendering WireFrame
+				mvp2.view = view;
+				mvp2.model = model;
+				b_surface->DrawControlPoints(renderer, &shader, &vArray, point, mvp2);
 
 				point.MoveTo(ligth_pos);
 				point.Scale(glm::vec3(0.02, 0.02, 0.02));
 				model = point.GetTransform();
 				mvp = proj * view * model;
 				shader.SetUniformMat4f("u_MVP", mvp);
+				//shader.SetUniformMat4f("u_Model", model);
+
+				Material m2(glm::vec4(0.0f, 0.0f, 1.0f, 1.0f),
+					glm::vec4(0.0f, 0.0f, 0.0f, 0.0f),
+					glm::vec4(0.0f, 0.0f, 0.0f, 0.0f),
+					10.0f, "u_Material");
+				point.SetMaterial(m2);
 
 				point.Draw(renderer, &shader, &vArray);
 				point.Scale(glm::vec3(50, 50, 50));

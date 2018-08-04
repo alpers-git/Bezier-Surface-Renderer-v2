@@ -18,6 +18,12 @@ struct MaterialTexture
 		tex = t;
 		mat = m;
 	}
+
+	MaterialTexture()
+	{
+		tex = Texture("", "");
+		mat = Material();
+	}
 };
 
 class SceneObject
@@ -25,6 +31,7 @@ class SceneObject
 public:
 	SceneObject();
 	SceneObject(glm::vec3 origin, glm::mat4 trsnfrm, MaterialTexture mat_tex);
+	//SceneObject(glm::vec3 origin, glm::mat4* trsnfrm, MaterialTexture mat_tex);
 	~SceneObject();
 
 	virtual void Draw(Renderer renderer, Shader* shader, VertexArray* vArray) = 0;
@@ -36,10 +43,13 @@ public:
 	inline vector<unsigned int> GetIndices() const { return m_indices; };
 	inline Material GetMaterial() { return m_mat_tex.mat; }
 	inline glm::mat4 GetTransform() { return m_transform; }
+	inline glm::vec3 GetOrigin() { return m_origin; }
 
 	inline void SetMaterial(Material material) { m_mat_tex.mat = material; }
 	inline void SetTexture(Texture texture) { m_mat_tex.tex = texture; }
 	inline void SetMaterialTexture(MaterialTexture mt) { m_mat_tex = mt; }
+	//inline void SetTransformPtr(glm::mat4 ptr) { m_transform.ptr= ptr; }
+	inline void SetTransform(glm::mat4 trnsfrm) { m_transform = trnsfrm; }
 	void MoveTo(glm::vec3 pos);
 
 

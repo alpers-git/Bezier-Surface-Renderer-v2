@@ -94,31 +94,49 @@ void BezierSurface::EvaluateBezierSurface()
 	CalculateIndices();
 }
 
-void BezierSurface::Draw(Renderer renderer, Shader* shader, VertexArray* vArray, bool render_wireframe)
+void BezierSurface::DrawWireFrame(Renderer renderer, Shader* shader, VertexArray* vArray)
 {
 	VertexBuffer vBuffer = VertexBuffer(&GetVertices().at(0), sizeof(Vertex) * GetVertices().size());
 	shader->Bind();
 	vArray->AddBuffer(vBuffer, m_layout);
 
-	m_mat_tex.tex.Bind();
-	shader->SetUniform1i(m_mat_tex.tex.GetUniformName(), 0);
+	m_mat_tex.tex.Unbind();
+	shader->SetMaterial(m_mat_tex.mat.GetUniformName(), Material());
 
 	for (int i = 0; i < GetIndices().size(); i += 4)
 	{
-		shader->SetMaterial(m_mat_tex.mat.GetUniformName(), m_mat_tex.mat);
 		IndexBuffer iBuffer(&GetIndices().at(i), 4);
-		renderer.Draw(*vArray, iBuffer, *shader, GL_TRIANGLE_FAN);
-
-		if (render_wireframe)
-		{
-			shader->SetMaterial(m_mat_tex.mat.GetUniformName(), Material());
-			renderer.Draw(*vArray, iBuffer, *shader, GL_LINE_LOOP);
-		}
+		renderer.Draw(*vArray, iBuffer, *shader, GL_LINE_LOOP);
 	}
+}
+
+void BezierSurface::DrawControlPoints(Renderer renderer, Shader * shader, VertexArray * vArray, DraggablePoint point, MVP mvp)
+{
+		/*DraggablePoint point = DraggablePoint();
+		point.SetTransform(this->m_transform);*/
+
+		for (int i = 0; i < m_num_control_row; i++)
+		{
+			for (int j = 0; j < m_num_control_col; j++)
+			{
+				point.MoveTo(m_control_points[i][j]);
+				glm::mat4 m1 = point.GetTransform() * (this->GetTransform());
+				point.SetTransform(m1);
+				point.Scale(glm::vec3(m_control_point_scale));
+				shader->SetUniformMat4f(mvp.uni_name, mvp.proj * mvp.view * point.GetTransform());
+
+				point.Draw(renderer, shader, vArray);
+				point.Scale(glm::vec3(pow(m_control_point_scale, -1)));
+				glm::mat4 m2 = point.GetTransform() * glm::inverse(this->GetTransform());
+				point.SetTransform(m2);
+				shader->SetUniformMat4f(mvp.uni_name, mvp.proj * mvp.view * mvp.model);
+			}
+		}
 }
 
 void BezierSurface::Draw(Renderer renderer, Shader* shader, VertexArray* vArray)
 {
+
 	VertexBuffer vBuffer = VertexBuffer(&GetVertices().at(0), sizeof(Vertex) * GetVertices().size());
 	shader->Bind();
 	vArray->AddBuffer(vBuffer, m_layout);
@@ -126,12 +144,14 @@ void BezierSurface::Draw(Renderer renderer, Shader* shader, VertexArray* vArray)
 	m_mat_tex.tex.Bind();
 	shader->SetUniform1i(m_mat_tex.tex.GetUniformName(), 0);
 
+	shader->SetMaterial(m_mat_tex.mat.GetUniformName(), m_mat_tex.mat);
+
 	for (int i = 0; i < GetIndices().size(); i += 4)
 	{
-		shader->SetMaterial(m_mat_tex.mat.GetUniformName(), m_mat_tex.mat);
 		IndexBuffer iBuffer(&GetIndices().at(i), 4);
 		renderer.Draw(*vArray, iBuffer, *shader, GL_TRIANGLE_FAN);
 	}
+
 }
 
 void BezierSurface::CalculateIndices()

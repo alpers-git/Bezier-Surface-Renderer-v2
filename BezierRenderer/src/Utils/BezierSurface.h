@@ -4,8 +4,17 @@
 #include "../OpenGL/Renderer.h"
 #include "../OpenGL/VertexBufferLayout.h"
 #include "../Scene/SceneObject.h"
+#include "../Scene/DraggablePoint.h"
 
 using namespace std;
+
+struct MVP
+{
+	glm::mat4 model;
+	glm::mat4 view;
+	glm::mat4 proj;
+	string uni_name;
+};
 
 class BezierSurface : public SceneObject
 {
@@ -18,16 +27,23 @@ public:
 	static glm::vec4 CalculatePointOnBezierCurve(float t, glm::vec4* calculation_points, int len);
 	static glm::vec4 CalculatePointOnBezierSurface(float u, float v, glm::vec4** calculation_points, int r, int c);
 
-	void Draw(Renderer renderer, Shader* shader, VertexArray* vArray, bool render_wireframe = false);
+	void DrawWireFrame(Renderer renderer, Shader* shader, VertexArray* vArray);
+	void DrawControlPoints(Renderer renderer, Shader* shader, VertexArray* vArray, DraggablePoint p, MVP mvp);
+	void Draw(Renderer renderer, Shader* shader, VertexArray* vArray);
+	inline void GetControlPoints(glm::vec4** c) { c = m_control_points; }
+	inline void SetCPMaterial(MaterialTexture mat_tex) { m_control_point_mat_tex = mat_tex; };
+	inline void SetControlPointScale(float s) { m_control_point_scale = s; }
 
 	void EvaluateBezierSurface();
 
 private:
-	void Draw(Renderer renderer, Shader* shader, VertexArray* vArray);
 	int m_num_control_row;
 	int m_num_control_col;
 	glm::vec4** m_control_points;
 	VertexBufferLayout m_layout;
+	float m_control_point_scale = 0.02f;
+	MaterialTexture m_control_point_mat_tex;
+
 
 	inline static int Factorial(int n) { return (n == 0 || n == 1) ? 1 : n * Factorial(n - 1); }
 
