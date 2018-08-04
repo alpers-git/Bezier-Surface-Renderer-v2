@@ -8,14 +8,6 @@
 
 using namespace std;
 
-struct MVP
-{
-	glm::mat4 model;
-	glm::mat4 view;
-	glm::mat4 proj;
-	string uni_name;
-};
-
 class BezierSurface : public SceneObject
 {
 public:
@@ -28,10 +20,10 @@ public:
 	static glm::vec4 CalculatePointOnBezierSurface(float u, float v, glm::vec4** calculation_points, int r, int c);
 
 	void DrawWireFrame(Renderer renderer, Shader* shader, VertexArray* vArray);
-	void DrawControlPoints(Renderer renderer, Shader* shader, VertexArray* vArray, DraggablePoint p, MVP mvp);
+	void DrawControlPoints(Renderer renderer, Shader* shader, VertexArray* vArray, DraggablePoint* p);
 	void Draw(Renderer renderer, Shader* shader, VertexArray* vArray);
 	inline void GetControlPoints(glm::vec4** c) { c = m_control_points; }
-	inline void SetCPMaterial(MaterialTexture mat_tex) { m_control_point_mat_tex = mat_tex; };
+	//inline void SetCPMaterial(MaterialTexture mat_tex) { m_control_point_mat_tex = mat_tex; };
 	inline void SetControlPointScale(float s) { m_control_point_scale = s; }
 
 	void EvaluateBezierSurface();
@@ -42,8 +34,6 @@ private:
 	glm::vec4** m_control_points;
 	VertexBufferLayout m_layout;
 	float m_control_point_scale = 0.02f;
-	MaterialTexture m_control_point_mat_tex;
-
 
 	inline static int Factorial(int n) { return (n == 0 || n == 1) ? 1 : n * Factorial(n - 1); }
 

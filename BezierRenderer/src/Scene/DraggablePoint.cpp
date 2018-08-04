@@ -45,7 +45,7 @@ void DraggablePoint::Draw(Renderer renderer, Shader * shader, VertexArray * vArr
 
 		m_mat_tex.tex.Bind();
 		shader->SetUniform1i(m_mat_tex.tex.GetUniformName(), 0);
-		//shader->SetUniformMat4f(this->GetTransformName(), this->GetTransform());
+		shader->SetUniformMat4f(this->GetTransformName(), this->GetTransform());
 
 		shader->SetMaterial(m_mat_tex.mat.GetUniformName(), m_mat_tex.mat);
 		IndexBuffer iBuffer(&GetIndices().at(0), GetIndices().size());

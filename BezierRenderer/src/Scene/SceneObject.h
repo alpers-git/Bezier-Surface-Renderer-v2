@@ -26,6 +26,12 @@ struct MaterialTexture
 	}
 };
 
+struct SceneTransform
+{
+	glm::mat4 transform;
+	string uniform_name;
+};
+
 class SceneObject
 {
 public:
@@ -42,14 +48,15 @@ public:
 	inline vector<Vertex> GetVertices() const { return m_vertices; };
 	inline vector<unsigned int> GetIndices() const { return m_indices; };
 	inline Material GetMaterial() { return m_mat_tex.mat; }
-	inline glm::mat4 GetTransform() { return m_transform; }
+	inline glm::mat4 GetTransform() { return m_transform.transform; }
 	inline glm::vec3 GetOrigin() { return m_origin; }
+	inline string GetTransformName() { return m_transform.uniform_name; }
 
 	inline void SetMaterial(Material material) { m_mat_tex.mat = material; }
 	inline void SetTexture(Texture texture) { m_mat_tex.tex = texture; }
 	inline void SetMaterialTexture(MaterialTexture mt) { m_mat_tex = mt; }
-	//inline void SetTransformPtr(glm::mat4 ptr) { m_transform.ptr= ptr; }
-	inline void SetTransform(glm::mat4 trnsfrm) { m_transform = trnsfrm; }
+	inline void SetTransformName(string s) { m_transform.uniform_name= s; }
+	inline void SetTransform(glm::mat4 trnsfrm) { m_transform.transform = trnsfrm; }
 	void MoveTo(glm::vec3 pos);
 
 
@@ -58,5 +65,5 @@ protected:
 	vector<unsigned int> m_indices;
 	MaterialTexture m_mat_tex;
 	glm::vec3 m_origin;
-	glm::mat4 m_transform;
+	SceneTransform m_transform;
 };

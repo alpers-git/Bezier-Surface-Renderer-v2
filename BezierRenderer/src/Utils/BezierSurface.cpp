@@ -102,15 +102,19 @@ void BezierSurface::DrawWireFrame(Renderer renderer, Shader* shader, VertexArray
 
 	m_mat_tex.tex.Unbind();
 	shader->SetMaterial(m_mat_tex.mat.GetUniformName(), Material());
+	shader->SetUniformMat4f(this->GetTransformName(), this->GetTransform());
 
-	for (int i = 0; i < GetIndices().size(); i += 4)
+	vector<unsigned int> indices = GetIndices();
+	IndexBuffer iBuffer(&indices.at(0), 4);
+
+	for (int i = 0; i < indices.size(); i += 4)
 	{
-		IndexBuffer iBuffer(&GetIndices().at(i), 4);
 		renderer.Draw(*vArray, iBuffer, *shader, GL_LINE_LOOP);
+		iBuffer.SetBufferData(&indices.at(i), 4);
 	}
 }
 
-void BezierSurface::DrawControlPoints(Renderer renderer, Shader * shader, VertexArray * vArray, DraggablePoint point, MVP mvp)
+void BezierSurface::DrawControlPoints(Renderer renderer, Shader * shader, VertexArray * vArray, DraggablePoint* point)
 {
 		/*DraggablePoint point = DraggablePoint();
 		point.SetTransform(this->m_transform);*/
@@ -119,17 +123,18 @@ void BezierSurface::DrawControlPoints(Renderer renderer, Shader * shader, Vertex
 		{
 			for (int j = 0; j < m_num_control_col; j++)
 			{
-				point.MoveTo(m_control_points[i][j]);
-				glm::mat4 m1 = point.GetTransform() * (this->GetTransform());
-				point.SetTransform(m1);
-				point.Scale(glm::vec3(m_control_point_scale));
-				shader->SetUniformMat4f(mvp.uni_name, mvp.proj * mvp.view * point.GetTransform());
+				point->MoveTo(m_control_points[i][j]);
+				glm::mat4 m1 = point->GetTransform() * (this->GetTransform());
+				point->SetTransform(m1);
+				point->Scale(glm::vec3(m_control_point_scale));
+				///shader->SetUniformMat4f(mvp.uni_name, mvp.proj * mvp.view * point.GetTransform());
+				shader->SetUniformMat4f(this->GetTransformName(), point->GetTransform());
 
-				point.Draw(renderer, shader, vArray);
-				point.Scale(glm::vec3(pow(m_control_point_scale, -1)));
-				glm::mat4 m2 = point.GetTransform() * glm::inverse(this->GetTransform());
-				point.SetTransform(m2);
-				shader->SetUniformMat4f(mvp.uni_name, mvp.proj * mvp.view * mvp.model);
+				point->Draw(renderer, shader, vArray);
+				point->Scale(glm::vec3(pow(m_control_point_scale, -1)));
+				glm::mat4 m2 = point->GetTransform() * glm::inverse(this->GetTransform());
+				point->SetTransform(m2);
+				///shader->SetUniformMat4f(mvp.uni_name, mvp.proj * mvp.view * mvp.model);
 			}
 		}
 }
@@ -143,12 +148,15 @@ void BezierSurface::Draw(Renderer renderer, Shader* shader, VertexArray* vArray)
 
 	m_mat_tex.tex.Bind();
 	shader->SetUniform1i(m_mat_tex.tex.GetUniformName(), 0);
-
 	shader->SetMaterial(m_mat_tex.mat.GetUniformName(), m_mat_tex.mat);
+	shader->SetUniformMat4f(this->GetTransformName(), this->GetTransform());
 
-	for (int i = 0; i < GetIndices().size(); i += 4)
+	vector<unsigned int> indices = GetIndices();
+	IndexBuffer iBuffer(&indices.at(0), 4);
+
+	for (int i = 0; i < indices.size(); i += 4)
 	{
-		IndexBuffer iBuffer(&GetIndices().at(i), 4);
+		iBuffer.SetBufferData(&indices.at(i), 4);
 		renderer.Draw(*vArray, iBuffer, *shader, GL_TRIANGLE_FAN);
 	}
 

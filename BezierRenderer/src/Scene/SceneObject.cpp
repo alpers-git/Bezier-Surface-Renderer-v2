@@ -8,7 +8,7 @@ SceneObject::SceneObject(glm::vec3 origin, glm::mat4 trsnfrm, MaterialTexture ma
 	:m_origin(origin),
 	m_mat_tex(mat_tex)
 {
-	m_transform = trsnfrm;
+	m_transform.transform = trsnfrm;
 }
 
 /*SceneObject::SceneObject(glm::vec3 origin, glm::mat4* trsnfrm, MaterialTexture mat_tex)
@@ -24,17 +24,17 @@ SceneObject::~SceneObject()
 void SceneObject::Translate(glm::vec3 t)
 {
 	m_origin += t;
-	m_transform = glm::translate(m_transform, t);
+	m_transform.transform = glm::translate(m_transform.transform, t);
 }
 
 void SceneObject::Rotate(glm::vec3 axis, float angle)
 {
-	m_transform= glm::rotate(m_transform, angle, axis);
+	m_transform.transform= glm::rotate(m_transform.transform, angle, axis);
 }
 
 void SceneObject::Scale(glm::vec3 s)
 {
-	m_transform= glm::scale(m_transform, s);
+	m_transform.transform= glm::scale(m_transform.transform, s);
 }
 
 void SceneObject::MoveTo(glm::vec3 pos)

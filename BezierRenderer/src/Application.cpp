@@ -97,7 +97,7 @@ int main(void)
 		Texture texture("res/textures/metal.jpg", "u_Texture");
 
 		Material b_material(glm::vec4(0.2f, 0.2f, 0.2f, 1.0f),
-				glm::vec4(0.0f, 0.0f, 1.0f, 1.0f),
+				glm::vec4(0.3f, 0.3f, 0.3f, 1.0f),
 				glm::vec4(1.0f, 1.0f, 1.0f, 1.0f), 1000.0f, "u_Material");
 		BezierSurface* b_surface = new BezierSurface(5, 5, control_points, MaterialTexture(b_material, texture));
 
@@ -123,7 +123,7 @@ int main(void)
 		glm::mat4 view = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, -2.9f));
 		glm::mat4 model = glm::rotate(glm::mat4(1.0f), glm::radians(0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
 
-		glm::mat4 mvp = proj * view * model;
+		//glm::mat4 mvp = proj * view * model;
 
 		//-----------------------------------------------------------------//
 		int width, height;
@@ -132,7 +132,10 @@ int main(void)
 		shader.Bind();
 
 		shader.SetUniform4f("u_LightPosition", 0.0f, 0.0f, 18.8f, 1.0f);
-		shader.SetUniformMat4f("u_MVP", mvp);
+		//shader.SetUniformMat4f("u_MVP", mvp);
+		shader.SetUniformMat4f("u_Model", model);
+		shader.SetUniformMat4f("u_View", view);
+		shader.SetUniformMat4f("u_Proj", proj);
 
 		vArray.Unbind();
 		shader.Unbind();
@@ -158,11 +161,11 @@ int main(void)
 
 		float old_a = 0.0f;
 		float a = 0.0f;				
-		MVP mvp2;
+		/*MVP mvp2;
 		mvp2.proj = proj;
 		mvp2.view = view;
 		mvp2.model = model;
-		mvp2.uni_name = "u_MVP";
+		mvp2.uni_name = "u_MVP";*/
 
 		GLCall(glClearColor(0.86f, 0.86f, 0.86f, 1.0f));
 		GLCall(glLineWidth(1.5f));
@@ -170,7 +173,7 @@ int main(void)
 		int ind_x=2, ind_y=2;
 
 		DraggablePoint point = DraggablePoint();
-		//b_surface->SetTransformName("u_Model");
+		b_surface->SetTransformName("u_Model");
 
 		float t = 0.0f;
 		/* Loop until the user closes the window */
@@ -193,14 +196,15 @@ int main(void)
 				view = glm::lookAt(glm::vec3(0.0f, 0.0f, zoom),
 					c_center,
 					glm::vec3(0.0f, 1.0f, 0.0f));
-				mvp = proj * view * model;
-				glm::mat4 normal_matrix = glm::transpose(glm::inverse(model));
+				//mvp = proj * view * model;
+				//glm::mat4 normal_matrix = glm::transpose(glm::inverse(model));
 
 				shader.SetUniform4f("u_LightPosition", ligth_pos.x, ligth_pos.y, ligth_pos.z, 1.0f);
-				shader.SetUniformMat4f("u_MVP", mvp);
-				//shader.SetUniformMat4f("u_View", view);
-				//shader.SetUniformMat4f("u_Proj", proj);
-				shader.SetUniformMat4f("u_NormalMat", normal_matrix);
+				//shader.SetUniformMat4f("u_MVP", mvp);
+				shader.SetUniformMat4f("u_Model", model);
+				shader.SetUniformMat4f("u_View", view);
+				shader.SetUniformMat4f("u_Proj", proj);
+				//shader.SetUniformMat4f("u_NormalMat", normal_matrix);
 				t += 0.01;
 
 				//-----------------------------------------------------------------//
@@ -249,18 +253,21 @@ int main(void)
 					b_surface->EvaluateBezierSurface();					//Recalculating surface
 					old_a = a;
 				}
-				b_surface->Draw(renderer, &shader, &vArray);			//Rendering
-				b_surface->DrawWireFrame(renderer, &shader, &vArray);	//Rendering WireFrame
-				mvp2.view = view;
-				mvp2.model = model;
-				b_surface->DrawControlPoints(renderer, &shader, &vArray, point, mvp2);
+				b_surface->Draw(renderer, &shader, &vArray);						//Rendering
+				b_surface->DrawWireFrame(renderer, &shader, &vArray);				//Rendering WireFrame
+				Material m1(glm::vec4(1.0f, 1.0f, 1.0f, 1.0f),
+					glm::vec4(0.0f, 0.0f, 0.0f, 0.0f),
+					glm::vec4(0.0f, 0.0f, 0.0f, 0.0f),
+					1.0f, "u_Material");
+				point.SetMaterial(m1);
+				b_surface->DrawControlPoints(renderer, &shader, &vArray, &point);	//Rendering control points
 
 				point.MoveTo(ligth_pos);
 				point.Scale(glm::vec3(0.02, 0.02, 0.02));
 				model = point.GetTransform();
-				mvp = proj * view * model;
-				shader.SetUniformMat4f("u_MVP", mvp);
-				//shader.SetUniformMat4f("u_Model", model);
+				//mvp = proj * view * model;
+				//shader.SetUniformMat4f("u_MVP", mvp);
+				shader.SetUniformMat4f("u_Model", model);
 
 				Material m2(glm::vec4(0.0f, 0.0f, 1.0f, 1.0f),
 					glm::vec4(0.0f, 0.0f, 0.0f, 0.0f),

@@ -9,11 +9,12 @@ out vec2 v_TexCoord;
 out vec3 fragpos, fragnormal;
 out float ldistance;
 
-uniform mat4 u_MVP;
+uniform mat4 u_Model, u_View, u_Proj;
 uniform vec4 u_LightPosition;
 
 void main()
 {
+	mat4 u_MVP = u_Proj * u_View * u_Model;
 	ldistance = distance(u_LightPosition.xyz, position.xyz);
 
 
@@ -45,14 +46,15 @@ in float ldistance;
 //layout(location = 1) in vec3 normal;
 
 uniform Material u_Material;
-uniform mat4 u_NormalMat;
+//uniform mat4 u_NormalMat;
 uniform sampler2D u_Texture;
 uniform vec4 u_LightPosition;
+uniform mat4 u_Model;
 
 void main()
 {
 	// Transform vertex normal into eye coordinates
-	vec3 N = normalize(mat3(u_NormalMat) * fragnormal);
+	vec3 N = normalize(mat3(transpose(inverse(u_Model))) * fragnormal);
 
 	// vector from vertex position to light source
 	// check for directional light
