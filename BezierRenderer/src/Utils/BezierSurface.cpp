@@ -1,6 +1,9 @@
 #include "BezierSurface.h"
 #include <math.h> 
 #include <iostream>
+#include "../Scene/Pivot.h"
+
+using namespace std;
 
 const int SAMPLING_RATE = 25;
 
@@ -13,6 +16,7 @@ BezierSurface::BezierSurface()
 	m_layout.Push<float>(4);
 	m_layout.Push<float>(3);
 	m_layout.Push<float>(2);
+	//PushDraggablePoints();
 }
  
 BezierSurface::BezierSurface(int rows, int cols, glm::vec4 ** control_points)
@@ -26,6 +30,7 @@ BezierSurface::BezierSurface(int rows, int cols, glm::vec4 ** control_points)
 	m_layout.Push<float>(2);
 
 	EvaluateBezierSurface();
+	//PushDraggablePoints();
 }
 
 BezierSurface::BezierSurface(int rows, int cols, glm::vec4 ** control_points, MaterialTexture mat_tex)
@@ -39,12 +44,17 @@ BezierSurface::BezierSurface(int rows, int cols, glm::vec4 ** control_points, Ma
 	m_layout.Push<float>(2);
 
 	EvaluateBezierSurface();
+	//PushDraggablePoints();
 }
 
 BezierSurface::~BezierSurface()
-{}
+{
+	for (int i = 0; i < m_num_control_row; i++)
+		delete[] m_draggable_points[i];
+	delete m_draggable_points;
+}
 
-glm::vec4 BezierSurface::CalculatePointOnBezierCurve(float t, glm::vec4 * calculation_points, int len)
+glm::vec4 BezierSurface::CalculatePointOnBezierCurve(float t, glm::vec4* calculation_points, int len)
 {
 	glm::vec4 point;
 
@@ -79,6 +89,29 @@ glm::vec4 BezierSurface::CalculatePointOnBezierSurface(float u, float v, glm::ve
 	return point;
 }
 
+void BezierSurface::DragSelectedControlPoints(glm::vec3 drag)
+{
+	if (m_draggable_points == nullptr)
+	{
+		PushDraggablePoints();
+	}
+
+	for (int i = 0; i < m_num_control_row; i++)
+	{
+		for (int j = 0; j < m_num_control_col; j++)
+		{
+			//DraggablePoint cur = ;
+			if (m_draggable_points[i][j].IsSelected())
+			{
+				m_draggable_points[i][j].Translate(drag * pow(m_control_point_scale, -1));
+				m_control_points[i][j] = glm::vec4(m_draggable_points[i][j].GetOrigin(), 1.0f);
+				//m_draggable_points[i][j].MoveTo(m_control_points[i][j]);
+				EvaluateBezierSurface();
+			}
+		}
+	}
+}
+
 void BezierSurface::EvaluateBezierSurface()
 {
 	m_vertices.clear();
@@ -109,32 +142,30 @@ void BezierSurface::DrawWireFrame(Renderer renderer, Shader* shader, VertexArray
 
 	for (int i = 0; i < indices.size(); i += 4)
 	{
-		renderer.Draw(*vArray, iBuffer, *shader, GL_LINE_LOOP);
 		iBuffer.SetBufferData(&indices.at(i), 4);
+		renderer.Draw(*vArray, iBuffer, *shader, GL_LINE_LOOP);
 	}
 }
 
-void BezierSurface::DrawControlPoints(Renderer renderer, Shader * shader, VertexArray * vArray, DraggablePoint* point)
+void BezierSurface::DrawControlPoints(Renderer renderer, Shader * shader, VertexArray * vArray)
 {
-		/*DraggablePoint point = DraggablePoint();
-		point.SetTransform(this->m_transform);*/
+	if (m_draggable_points == nullptr)
+	{
+		PushDraggablePoints();
+	}
 
 		for (int i = 0; i < m_num_control_row; i++)
 		{
 			for (int j = 0; j < m_num_control_col; j++)
 			{
-				point->MoveTo(m_control_points[i][j]);
-				glm::mat4 m1 = point->GetTransform() * (this->GetTransform());
-				point->SetTransform(m1);
-				point->Scale(glm::vec3(m_control_point_scale));
-				///shader->SetUniformMat4f(mvp.uni_name, mvp.proj * mvp.view * point.GetTransform());
-				shader->SetUniformMat4f(this->GetTransformName(), point->GetTransform());
+				shader->SetUniformMat4f(this->GetTransformName(), m_draggable_points[i][j].GetTransform());
+				m_draggable_points[i][j].Draw(renderer, shader, vArray);
 
-				point->Draw(renderer, shader, vArray);
-				point->Scale(glm::vec3(pow(m_control_point_scale, -1)));
-				glm::mat4 m2 = point->GetTransform() * glm::inverse(this->GetTransform());
-				point->SetTransform(m2);
-				///shader->SetUniformMat4f(mvp.uni_name, mvp.proj * mvp.view * mvp.model);
+				if (m_draggable_points[i][j].IsSelected())
+				{
+					m_piv.SceneObject::SetTransform(m_draggable_points[i][j].GetTransform());
+					m_piv.Draw(renderer, shader, vArray);
+				}
 			}
 		}
 }
@@ -162,6 +193,35 @@ void BezierSurface::Draw(Renderer renderer, Shader* shader, VertexArray* vArray)
 
 }
 
+void BezierSurface::HitAndSelect(Ray ray)
+{
+	if (m_draggable_points == nullptr)
+	{
+		PushDraggablePoints();
+	}
+	for (int i = m_num_control_row - 1; i >= 0; i--)
+	{
+		for (int j = m_num_control_col -1; j >= 0; j--)
+		{
+			if (m_draggable_points[i][j].Hit(ray, m_control_point_scale))
+			{
+				m_draggable_points[i][j].SetMaterial(Material(glm::vec4(0.0f, 1.0f, 0.0f, 1.0f),
+					glm::vec4(), glm::vec4(), 10.0f, m_mat_tex.mat.GetUniformName()));
+				m_draggable_points[i][j].SetSelected(true);
+
+				//cout << "selected " << i << ", " << j << endl;
+			}
+			else
+			{
+				m_draggable_points[i][j].SetMaterial(Material(glm::vec4(1.0f, 1.0f, 1.0f, 1.0f),
+					glm::vec4(), glm::vec4(), 10.0f, m_mat_tex.mat.GetUniformName()));
+				m_draggable_points[i][j].SetSelected(false);
+			}
+
+		}
+	}
+}
+
 void BezierSurface::CalculateIndices()
 {
 	m_indices.clear();
@@ -173,6 +233,24 @@ void BezierSurface::CalculateIndices()
 			m_indices.push_back(j);
 			m_indices.push_back(SAMPLING_RATE + j);
 			m_indices.push_back(SAMPLING_RATE - 1 + j);
+		}
+	}
+}
+
+void BezierSurface::PushDraggablePoints()
+{
+	m_draggable_points = new DraggablePoint*[m_num_control_row];
+	for (int i = 0; i < m_num_control_row; i++)
+	{
+		m_draggable_points[i] = new DraggablePoint[m_num_control_col];
+		for (int j = 0; j < m_num_control_col; j++)
+		{
+			DraggablePoint point = DraggablePoint();
+			glm::mat4 m1 = point.GetTransform() * (this->GetTransform());
+			point.SetTransform(m1);
+			point.MoveTo(m_control_points[i][j]);
+			point.Scale(glm::vec3(m_control_point_scale));
+			m_draggable_points[i][j] = point;
 		}
 	}
 }

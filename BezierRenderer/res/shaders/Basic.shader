@@ -69,7 +69,7 @@ void main()
 
 	vec3 E = normalize(fragpos);
 
-	float fatt = 1.0 / (1 + 0.001f * ldistance + 0.001f * ldistance * ldistance);
+	float fatt = 1.0 / (1 + 0.00001f * ldistance + 0.00001f * ldistance * ldistance);
 	vec4 fColor;
 
 	vec3 H = normalize(L + E);

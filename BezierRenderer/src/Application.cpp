@@ -28,12 +28,14 @@
 #include "Utils/PickerCursor.h"
 #include "Scene\SceneObject.h"
 #include "Scene/DraggablePoint.h"
+#include "Scene/SceneObject.h"
 
 float cursor_x, cursor_y;
-bool unhandled_callback, clicked;
+bool unhandled_callback, clicked, cursor_in;
 
 static void CursorPositionCallback(GLFWwindow * window, double x_pos, double y_pos);
-static void MouseButtonCallback(GLFWwindow* window, int button, int action, int mods);
+static void CursorEnteredCallBack(GLFWwindow * window, int in);
+//static void MouseButtonCallback(GLFWwindow* window, int button, int action, int mods);
 
 int main(void)
 {
@@ -61,6 +63,7 @@ int main(void)
 	cursor.SetCursorPosCallBack(window);*/
 	//glfwSetMouseButtonCallback(window, MouseButtonCallback);
 	glfwSetCursorPosCallback(window, CursorPositionCallback);
+	glfwSetCursorEnterCallback(window, CursorEnteredCallBack);
 	
 
 	if (glewInit() != GLEW_OK)
@@ -96,8 +99,8 @@ int main(void)
 
 		Texture texture("res/textures/metal.jpg", "u_Texture");
 
-		Material b_material(glm::vec4(0.2f, 0.2f, 0.2f, 1.0f),
-				glm::vec4(0.3f, 0.3f, 0.3f, 1.0f),
+		Material b_material(glm::vec4(0.0f, 0.0f, 0.0f, 1.0f),
+				glm::vec4(0.3f, 0.4f, 0.3f, 1.0f),
 				glm::vec4(1.0f, 1.0f, 1.0f, 1.0f), 1000.0f, "u_Material");
 		BezierSurface* b_surface = new BezierSurface(5, 5, control_points, MaterialTexture(b_material, texture));
 
@@ -153,27 +156,21 @@ int main(void)
 		bool show_demo_window = true;
 		bool show_another_window = false;
 
-		glm::vec3 ligth_pos(0.0f, 0.0f, 4.0f);
+		glm::vec3 ligth_pos(0.0f, 0.0f, 10.0f);
 		glm::vec3 c_center = glm::vec3(0.0f, 0.0f, 0.0f);
 		ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
 
-		float zoom = 5.0f;
-
-		float old_a = 0.0f;
-		float a = 0.0f;				
-		/*MVP mvp2;
-		mvp2.proj = proj;
-		mvp2.view = view;
-		mvp2.model = model;
-		mvp2.uni_name = "u_MVP";*/
+		float zoom = 9.0f;
+		glm::vec3 a, old_a;
 
 		GLCall(glClearColor(0.86f, 0.86f, 0.86f, 1.0f));
 		GLCall(glLineWidth(1.5f));
 
-		int ind_x=2, ind_y=2;
-
 		DraggablePoint point = DraggablePoint();
 		b_surface->SetTransformName("u_Model");
+		b_surface->Scale(glm::vec3(2.0f, 2.0f, 2.0f));
+		Ray ray;
+		DraggablePoint point2 = DraggablePoint();
 
 		float t = 0.0f;
 		/* Loop until the user closes the window */
@@ -191,82 +188,73 @@ int main(void)
 
 			shader.Bind();
 			{
-				//b_surface->MoveTo(glm::vec3(0.0f, 2*sin(t), 0.0f));
 				model = b_surface->GetTransform();
 				view = glm::lookAt(glm::vec3(0.0f, 0.0f, zoom),
 					c_center,
-					glm::vec3(0.0f, 1.0f, 0.0f));
-				//mvp = proj * view * model;
-				//glm::mat4 normal_matrix = glm::transpose(glm::inverse(model));
+					glm::vec3(0.0f, 01.0f, 0.0f));
 
 				shader.SetUniform4f("u_LightPosition", ligth_pos.x, ligth_pos.y, ligth_pos.z, 1.0f);
-				//shader.SetUniformMat4f("u_MVP", mvp);
 				shader.SetUniformMat4f("u_Model", model);
 				shader.SetUniformMat4f("u_View", view);
 				shader.SetUniformMat4f("u_Proj", proj);
-				//shader.SetUniformMat4f("u_NormalMat", normal_matrix);
 				t += 0.01;
 
 				//-----------------------------------------------------------------//
+				//ray.direction = glm::vec3();
+				glm::vec4 lRayStart_NDC(
+					((float)cursor_x / (float)width - 0.5f) * 2.0f,
+					((float)cursor_y / (float)height - 0.5f) * 2.0f,
+					-1.0f, // The near plane maps to Z=-1 in Normalized Device Coordinates
+					1.0f
+				);
+
+				glm::vec4 lRayEnd_NDC(
+					((float)cursor_x / (float)width - 0.5f) * 2.0f,
+					((float)cursor_y / (float)height - 0.5f) * 2.0f,
+					0.0f,
+					1.0f
+				);
+
+				// Faster way (just one inverse)
+				glm::mat4 M = glm::inverse(proj * view);
+				glm::vec4 lRayStart_world = M * lRayStart_NDC; lRayStart_world /= lRayStart_world.w;
+				glm::vec4 lRayEnd_world = M * lRayEnd_NDC; lRayEnd_world /= lRayEnd_world.w;
+
+
+				glm::vec3 lRayDir_world(lRayEnd_world - lRayStart_world);
+				lRayDir_world = glm::normalize(lRayDir_world);
+
+
+				ray.origin = glm::vec3(lRayStart_world);
+				ray.direction = glm::normalize(lRayDir_world);
+				ray.direction = glm::vec3(ray.direction.x, -ray.direction.y, ray.direction.z);
+
+				b_surface->HitAndSelect(ray);
+				unsigned int ind[2] = { 0, 1 };
+				IndexBuffer iBuffer2(ind, 2 * sizeof(unsigned int));
+				Vertex ver[2] = { Vertex(glm::vec4(ray.origin, 1.0f), glm::vec3(), glm::vec2()), Vertex(glm::vec4(ray.direction, 1.0f), glm::vec3(), glm::vec2()) };
+				VertexBuffer vBuffer2(ver, sizeof(Vertex) * 2);
+				vArray.AddBuffer(vBuffer2, layout);
+
+				renderer.Draw(vArray, iBuffer2, shader, GL_LINES);
 				if (clicked)
 				{
-
-					float x = (2.0f * cursor_x) / width - 1.0f;
-					float y = 1.0f - (2.0f * cursor_y) / height;
-
-					glm::vec4 ray_clip = glm::vec4(x, y, -1.0, 1.0);
-
-					//std::cout << "x: " << x << ", y: " << y <<std::endl;
-					glm::vec4 ray_eye = glm::inverse(proj) * ray_clip;
-					ray_eye.z = -1.0f;
-					ray_eye.w = 0.0f;
-					glm::vec3 ray_wor = (glm::inverse(view) * ray_eye);
-					ray_wor = glm::normalize(ray_wor);
-
-					float min_distance = FLT_MAX;
-
-					for (int i = 0; i < 5; i++)
+					if (old_a != ray.direction)
 					{
-						for (int j = 0; j < 5; j++)
-						{
-							float t = (model * view * control_points[i][j]).z / ray_wor.z;
-							glm::vec3 hit_point = ray_wor * t;
-
-							if (glm::distance(hit_point, glm::vec3(model * view * control_points[i][j])) < min_distance)
-							{
-								min_distance = glm::distance(hit_point, glm::vec3(model * view * control_points[i][j]));
-								ind_x = i;
-								ind_y = j;
-								std::cout << "selected cp: " << ind_x << ind_y << std::endl;
-							}
-						}
+						b_surface->DragSelectedControlPoints(ray.direction - old_a);
+						//b_surface->DragSelectedControlPoints(glm::vec3(0.0f, 0.0f, a));
+						old_a = ray.direction;
 					}
-
-					//std::cout << hit_point.x << ", " << hit_point.y << ", " << hit_point.z << ", " << std::endl;
-					//unhandled_callback = false;
 				}
 				//-----------------------------------------------------------------//
-
-				control_points[ind_x][ind_y].z = a;
-				if (old_a != a)
-				{
-					b_surface->EvaluateBezierSurface();					//Recalculating surface
-					old_a = a;
-				}
 				b_surface->Draw(renderer, &shader, &vArray);						//Rendering
 				b_surface->DrawWireFrame(renderer, &shader, &vArray);				//Rendering WireFrame
-				Material m1(glm::vec4(1.0f, 1.0f, 1.0f, 1.0f),
-					glm::vec4(0.0f, 0.0f, 0.0f, 0.0f),
-					glm::vec4(0.0f, 0.0f, 0.0f, 0.0f),
-					1.0f, "u_Material");
-				point.SetMaterial(m1);
-				b_surface->DrawControlPoints(renderer, &shader, &vArray, &point);	//Rendering control points
+				b_surface->DrawControlPoints(renderer, &shader, &vArray);			//Rendering control points
 
 				point.MoveTo(ligth_pos);
 				point.Scale(glm::vec3(0.02, 0.02, 0.02));
 				model = point.GetTransform();
-				//mvp = proj * view * model;
-				//shader.SetUniformMat4f("u_MVP", mvp);
+
 				shader.SetUniformMat4f("u_Model", model);
 
 				Material m2(glm::vec4(0.0f, 0.0f, 1.0f, 1.0f),
@@ -285,7 +273,7 @@ int main(void)
 				ImGui::SliderFloat3("Ligth Pos", &ligth_pos.x, -10.0f, 15.0f);
 				ImGui::SliderFloat3("Camera Center", &c_center.x, -10.0f, 10.0f);
 				ImGui::SliderFloat("Camera Zoom", &zoom, -10.0f, 10.0f);
-				ImGui::SliderFloat("a", &a, -49.0f, 49.0f);
+				//ImGui::SliderFloat("a", &a, -49.0f, 49.0f);
 				//ImGui::ColorEdit3("clear color", (float*)&clear_color); // Edit 3 floats representing a color
 
 				//ImGui::Checkbox("Demo Window", &show_demo_window);      // Edit bools storing our windows open/close state
@@ -322,21 +310,20 @@ int main(void)
 
 static void CursorPositionCallback(GLFWwindow * window, double x_pos, double y_pos)
 {
-	cursor_x = x_pos;
-	cursor_y = y_pos;
-	//unhandled_callback = true;
-	/*int width, height;
-	glfwGetWindowSize(window, &width, &height);
-	float x = (2.0f * x_pos) / width - 1.0f;
-	float y = 1.0f - (2.0f * y_pos) / height;
-
-	glm::vec4 ray_clip = glm::vec4(x, y, -1.0, 1.0);
-
-	//std::cout << "x: " << x << ", y: " << y <<std::endl;
-	glm::vec4 ray_eye = glm::inverse(m_projection_mat) * ray_clip;*/
+	if (cursor_in)
+	{
+		cursor_x = x_pos;
+		cursor_y = y_pos;
+		//cout << "x: " << x_pos << " y: " << y_pos << endl;
+	}
 }
 
-static void MouseButtonCallback(GLFWwindow* window, int button, int action, int mods)
+static void CursorEnteredCallBack(GLFWwindow * window, int in)
+{
+	cursor_in = in;
+}
+
+/*static void MouseButtonCallback(GLFWwindow* window, int button, int action, int mods)
 {
 	std::cout << "aaaa " << std::endl;
 	if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS)
@@ -347,5 +334,5 @@ static void MouseButtonCallback(GLFWwindow* window, int button, int action, int 
 	/*if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_RELEASE)
 	{
 		clicked = false;
-	}*/
-}
+	}
+}*/
